@@ -1,0 +1,97 @@
+
+// Arquivo: Models/User.cs
+using System.ComponentModel.DataAnnotations;
+using System.Web;
+
+public class User
+{
+    public int UserId { get; set; }
+    [DataType(DataType.EmailAddress)]
+    public string Email { get; set; }
+    public string Password { get; set; }
+    [StringLength(11)]
+    public string CPF { get; set; }
+    [StringLength(14)]
+    public string CNPJ { get; set; }
+    [StringLength(8)]
+    public string CEP { get; set; }
+    [Required]
+    public string Role { get; set; } // Role do usuário (ex: "Admin", "User")
+}
+
+// Arquivo: Controllers/UserController.cs
+using System.Web.Mvc;
+using YourProject.Models; // Substitua 'YourProject' pelo nome real do seu namespace
+using System.Linq;
+using System.Web.Security;
+
+public class UserController : Controller
+{
+    private YourDbContext db = new YourDbContext();
+
+    public ActionResult Login()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    public ActionResult Login(string username, string password)
+    {
+        var user = db.Users.FirstOrDefault(u => u.Username == username && u.Password == password);
+        if (user != null)
+        {
+            FormsAuthentication.SetAuthCookie(user.Username, false);
+            Session["UserID"] = user.UserId;
+            Session["Role"] = user.Role;
+            return RedirectToAction("Index", "Home");
+        }
+        ViewBag.Error = "Invalid credentials";
+        return View();
+    }
+
+    [Authorize(Roles = "Admin")]
+    public ActionResult ManageUsers()
+    {
+        if (!User.IsInRole("Admin"))
+        {
+            return RedirectToAction("Index", "Home");
+        }
+        var users = db.Users.ToList();
+        return View(users);
+    }
+
+    [Authorize(Roles = "Admin")]
+    public ActionResult Delete(int id)
+    {
+        if (!User.IsInRole("Admin"))
+        {
+            return RedirectToAction("Index", "Home");
+        }
+        var user = db.Users.Find(id);
+        if (user == null)
+        {
+            return HttpNotFound();
+        }
+        db.Users.Remove(user);
+        db.SaveChanges();
+        return RedirectToAction("ManageUsers");
+    }
+}
+
+// Arquivo: Views/User/Login.cshtml
+@model YourProject.Models.User
+
+<h2>Login</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.LabelFor(m => m.Username)
+    @Html.TextBoxFor(m => m.Username)
+    @Html.ValidationMessageFor(m => m.Username)
+
+    @Html.LabelFor(m => m.Password)
+    @Html.PasswordFor(m => m.Password)
+    @Html.ValidationMessageFor(m => m.Password)
+
+    <button type="submit">Login</button>
+}
